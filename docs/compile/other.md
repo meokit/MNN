@@ -68,6 +68,7 @@
 ## 测试工具
 - 相关编译选项
   - `MNN_BUILD_TOOLS` 是否编译测试工具
+  - `MNN_BUILD_RPC` 是否编译实验性的RPC远程工作进程
 - 编译命令
     ```bash
     mkdir build && cd build
@@ -97,6 +98,7 @@
   - `LoRA` 将LorA权重添加到模型权重中
   - `compilefornpu` 将Npu要运行的部分转换为Plugin算子
   - `generateIO` 用于为Npu模型转换提供输入输出工具
+  - `mnn-rpc-server` RPC远程后端工作进程（需打开 `MNN_BUILD_RPC`）
 ## Benchmark工具
 - 相关编译选项
   - `MNN_BUILD_BENCHMARK` 是否编译Benchmark工具

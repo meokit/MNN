@@ -51,6 +51,9 @@ extern void registerQNNRuntimeCreator();
 #ifdef MNN_NEUROPILOT
 extern void registerNeuroPilot();
 #endif
+#ifdef MNN_RPC_ENABLED
+extern void registerRPCRuntimeCreator();
+#endif
 static std::once_flag s_flag;
 void registerBackend() {
     std::call_once(s_flag, [&]() {
@@ -79,6 +82,9 @@ void registerBackend() {
 #endif
 #ifdef MNN_NEUROPILOT
         registerNeuroPilot();
+#endif
+#ifdef MNN_RPC_ENABLED
+        registerRPCRuntimeCreator();
 #endif
     });
 }
