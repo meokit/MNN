@@ -53,13 +53,15 @@ private:
 
 class RemoteExecution : public Execution {
 public:
-    RemoteExecution(Backend* backend, std::shared_ptr<Client> client);
+    RemoteExecution(Backend* backend, std::shared_ptr<Client> client, const GraphDescriptor& graph);
     ~RemoteExecution() override = default;
     ErrorCode onResize(const std::vector<Tensor*>& inputs, const std::vector<Tensor*>& outputs) override;
     ErrorCode onExecute(const std::vector<Tensor*>& inputs, const std::vector<Tensor*>& outputs) override;
 
 private:
     std::shared_ptr<Client> mClient;
+    GraphDescriptor mGraph;
+    bool mRegistered = false;
 };
 
 } // namespace RPC

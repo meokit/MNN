@@ -35,6 +35,32 @@ struct SegmentConfig {
     uint32_t flags = 0;
 };
 
+struct GraphDescriptor {
+    uint64_t graphUid = 0;
+    uint64_t segmentUid = 0;
+    uint64_t shapeSignature = 0;
+    uint32_t opCount = 0;
+    uint32_t tensorCount = 0;
+    uint32_t flags = 0;
+};
+
+struct TensorDescriptor {
+    uint64_t tensorUid = 0;
+    uint64_t byteSize = 0;
+    uint32_t dataType = 0;
+    uint32_t dimensions = 0;
+    uint32_t flags = 0;
+};
+
+struct RuntimeStats {
+    uint32_t graphCount = 0;
+    uint32_t weightCount = 0;
+    uint64_t graphRegisterCount = 0;
+    uint64_t graphCacheHitCount = 0;
+    uint64_t weightPushCount = 0;
+    uint64_t weightCacheHitCount = 0;
+};
+
 struct ClientConfig {
     uint32_t configVersion = MNN_RPC_CONFIG_VERSION;
     uint32_t protocolVersion = MNN_RPC_PROTOCOL_VERSION;
@@ -57,6 +83,10 @@ public:
     bool hello();
     bool ping(uint64_t* timestamp = nullptr);
     bool getCapabilities(std::vector<MNNRPCDeviceCapability>& capabilities);
+    bool registerGraph(const GraphDescriptor& graph, bool* cacheHit = nullptr);
+    bool freeGraph(uint64_t graphUid);
+    bool pushWeight(const TensorDescriptor& tensor, const void* data, size_t size, bool* cacheHit = nullptr);
+    bool getStats(RuntimeStats& stats);
     const std::string& lastError() const;
     const ClientConfig& config() const;
 

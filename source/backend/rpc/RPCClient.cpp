@@ -73,6 +73,10 @@ bool ClientConfig::from(const MNNRPCClientConfig* src, ClientConfig& dst, std::s
         out.layerEnd = in.layerEnd;
         out.nodeIndex = in.nodeIndex;
         out.flags = in.flags;
+        if (out.nodeIndex >= dst.nodes.size()) {
+            error = "RPC segment node index is out of range";
+            return false;
+        }
         dst.segments.emplace_back(std::move(out));
     }
     return true;
@@ -164,6 +168,114 @@ bool Client::getCapabilities(std::vector<MNNRPCDeviceCapability>& capabilities) 
     if (header.count > 0) {
         ::memcpy(capabilities.data(), response.data() + sizeof(header), header.count * sizeof(MNNRPCDeviceCapability));
     }
+    return true;
+}
+
+bool Client::registerGraph(const GraphDescriptor& graph, bool* cacheHit) {
+    GraphRegisterRequest request;
+    request.graphUid = graph.graphUid;
+    request.segmentUid = graph.segmentUid;
+    request.shapeSignature = graph.shapeSignature;
+    request.opCount = graph.opCount;
+    request.tensorCount = graph.tensorCount;
+    request.flags = graph.flags;
+    std::vector<uint8_t> response;
+    if (!this->request(MNN_RPC_CMD_REGISTER_GRAPH, &request, sizeof(request), response)) {
+        return false;
+    }
+    if (response.size() != sizeof(GraphOperationResponse)) {
+        setError("Unexpected REGISTER_GRAPH response size");
+        return false;
+    }
+    GraphOperationResponse payload;
+    ::memcpy(&payload, response.data(), sizeof(payload));
+    if (payload.status != MNN_RPC_STATUS_OK) {
+        setError("REGISTER_GRAPH rejected by server");
+        return false;
+    }
+    if (cacheHit != nullptr) {
+        *cacheHit = (payload.flags & 1u) != 0;
+    }
+    return true;
+}
+
+bool Client::freeGraph(uint64_t graphUid) {
+    GraphRegisterRequest request;
+    request.graphUid = graphUid;
+    std::vector<uint8_t> response;
+    if (!this->request(MNN_RPC_CMD_FREE_GRAPH, &request, sizeof(request), response)) {
+        return false;
+    }
+    if (response.size() != sizeof(GraphOperationResponse)) {
+        setError("Unexpected FREE_GRAPH response size");
+        return false;
+    }
+    GraphOperationResponse payload;
+    ::memcpy(&payload, response.data(), sizeof(payload));
+    if (payload.status != MNN_RPC_STATUS_OK) {
+        setError("FREE_GRAPH rejected by server");
+        return false;
+    }
+    return true;
+}
+
+bool Client::pushWeight(const TensorDescriptor& tensor, const void* data, size_t size, bool* cacheHit) {
+    if ((data == nullptr && size > 0) || size != tensor.byteSize) {
+        setError("Invalid PUSH_WEIGHT payload");
+        return false;
+    }
+    std::vector<uint8_t> request(sizeof(WeightPushRequest) + size);
+    WeightPushRequest header;
+    header.tensorUid = tensor.tensorUid;
+    header.byteSize = tensor.byteSize;
+    header.dataType = tensor.dataType;
+    header.dimensions = tensor.dimensions;
+    header.flags = tensor.flags;
+    ::memcpy(request.data(), &header, sizeof(header));
+    if (size > 0) {
+        ::memcpy(request.data() + sizeof(header), data, size);
+    }
+    std::vector<uint8_t> response;
+    if (!this->request(MNN_RPC_CMD_PUSH_WEIGHT, request.data(), request.size(), response)) {
+        return false;
+    }
+    if (response.size() != sizeof(GraphOperationResponse)) {
+        setError("Unexpected PUSH_WEIGHT response size");
+        return false;
+    }
+    GraphOperationResponse payload;
+    ::memcpy(&payload, response.data(), sizeof(payload));
+    if (payload.status != MNN_RPC_STATUS_OK) {
+        setError("PUSH_WEIGHT rejected by server");
+        return false;
+    }
+    if (cacheHit != nullptr) {
+        *cacheHit = (payload.flags & 1u) != 0;
+    }
+    return true;
+}
+
+bool Client::getStats(RuntimeStats& stats) {
+    std::vector<uint8_t> response;
+    if (!this->request(MNN_RPC_CMD_GET_STATS, nullptr, 0, response)) {
+        return false;
+    }
+    if (response.size() != sizeof(StatsPayload)) {
+        setError("Unexpected GET_STATS response size");
+        return false;
+    }
+    StatsPayload payload;
+    ::memcpy(&payload, response.data(), sizeof(payload));
+    if (payload.status != MNN_RPC_STATUS_OK) {
+        setError("GET_STATS rejected by server");
+        return false;
+    }
+    stats.graphCount = payload.graphCount;
+    stats.weightCount = payload.weightCount;
+    stats.graphRegisterCount = payload.graphRegisterCount;
+    stats.graphCacheHitCount = payload.graphCacheHitCount;
+    stats.weightPushCount = payload.weightPushCount;
+    stats.weightCacheHitCount = payload.weightCacheHitCount;
     return true;
 }
 

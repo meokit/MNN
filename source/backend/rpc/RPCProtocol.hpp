@@ -6,6 +6,7 @@
 #ifndef MNN_SOURCE_BACKEND_RPC_RPCPROTOCOL_HPP
 #define MNN_SOURCE_BACKEND_RPC_RPCPROTOCOL_HPP
 
+#include <stddef.h>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -49,6 +50,43 @@ struct PingPayload {
 struct CapabilityListHeader {
     uint32_t status = MNN_RPC_STATUS_OK;
     uint32_t count = 0;
+};
+
+struct GraphRegisterRequest {
+    uint64_t graphUid = 0;
+    uint64_t segmentUid = 0;
+    uint64_t shapeSignature = 0;
+    uint32_t opCount = 0;
+    uint32_t tensorCount = 0;
+    uint32_t flags = 0;
+    uint32_t reserved = 0;
+};
+
+struct GraphOperationResponse {
+    uint32_t status = MNN_RPC_STATUS_OK;
+    uint32_t flags = 0;
+    uint64_t graphUid = 0;
+    uint64_t segmentUid = 0;
+};
+
+struct WeightPushRequest {
+    uint64_t tensorUid = 0;
+    uint64_t byteSize = 0;
+    uint32_t dataType = 0;
+    uint32_t dimensions = 0;
+    uint32_t flags = 0;
+    uint32_t reserved = 0;
+};
+
+struct StatsPayload {
+    uint32_t status = MNN_RPC_STATUS_OK;
+    uint32_t graphCount = 0;
+    uint32_t weightCount = 0;
+    uint32_t reserved = 0;
+    uint64_t graphRegisterCount = 0;
+    uint64_t graphCacheHitCount = 0;
+    uint64_t weightPushCount = 0;
+    uint64_t weightCacheHitCount = 0;
 };
 #pragma pack(pop)
 

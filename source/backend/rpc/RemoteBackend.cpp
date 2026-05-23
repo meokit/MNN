@@ -12,6 +12,23 @@
 namespace MNN {
 namespace RPC {
 
+namespace {
+static uint64_t hashString(const char* content) {
+    const uint64_t offset = 1469598103934665603ull;
+    const uint64_t prime = 1099511628211ull;
+    uint64_t value = offset;
+    if (content == nullptr) {
+        return value;
+    }
+    while (*content) {
+        value ^= static_cast<uint8_t>(*content);
+        value *= prime;
+        ++content;
+    }
+    return value;
+}
+}
+
 RemoteBackend::RemoteMemObj::RemoteMemObj(size_t size) {
     if (size > 0) {
         mPtr = MNNMemoryAllocAlign(size, MNN_MEMORY_ALIGN_DEFAULT);
@@ -33,6 +50,8 @@ RemoteBackend::RemoteBackend(std::shared_ptr<Client> client) : Backend(MNN_FORWA
 }
 
 Execution* RemoteBackend::onCreate(const std::vector<Tensor*>& inputs, const std::vector<Tensor*>& outputs, const MNN::Op* op) {
+    (void)inputs;
+    (void)outputs;
     if (op == nullptr || op->type() != OpType_Extra || op->main_type() != OpParameter_Extra) {
         return nullptr;
     }
@@ -40,7 +59,12 @@ Execution* RemoteBackend::onCreate(const std::vector<Tensor*>& inputs, const std
     if (extra == nullptr || extra->type() == nullptr || extra->type()->str() != "RPCSegment") {
         return nullptr;
     }
-    return new RemoteExecution(this, mClient);
+    GraphDescriptor graph;
+    graph.graphUid = hashString(op->name() == nullptr ? nullptr : op->name()->c_str());
+    graph.segmentUid = hashString(extra->engine() == nullptr ? nullptr : extra->engine()->c_str());
+    graph.shapeSignature = graph.graphUid ^ (graph.segmentUid << 1);
+    graph.opCount = 1;
+    return new RemoteExecution(this, mClient, graph);
 }
 
 ErrorCode RemoteBackend::onResizeEnd() {
@@ -87,12 +111,21 @@ const std::string& RemoteBackend::lastError() const {
     return mLastError;
 }
 
-RemoteExecution::RemoteExecution(Backend* backend, std::shared_ptr<Client> client) : Execution(backend), mClient(std::move(client)) {
+RemoteExecution::RemoteExecution(Backend* backend, std::shared_ptr<Client> client, const GraphDescriptor& graph)
+    : Execution(backend), mClient(std::move(client)), mGraph(graph) {
 }
 
 ErrorCode RemoteExecution::onResize(const std::vector<Tensor*>& inputs, const std::vector<Tensor*>& outputs) {
-    (void)inputs;
-    (void)outputs;
+    mGraph.tensorCount = static_cast<uint32_t>(inputs.size() + outputs.size());
+    if (mRegistered || mClient == nullptr) {
+        return NO_ERROR;
+    }
+    if (!mClient->registerGraph(mGraph)) {
+        auto remote = static_cast<RemoteBackend*>(backend());
+        remote->setLastError(mClient->lastError());
+        return NOT_SUPPORT;
+    }
+    mRegistered = true;
     return NO_ERROR;
 }
 
